@@ -6,6 +6,8 @@ from rest_framework.parsers import JSONParser
 from apps.base.models import Category, Book
 from apps.base.serializers import CategorySerializer, BookSerializer
 
+from apps.scraper.views import BookScraper
+
 class JSONResponse(HttpResponse):
 	"""
 	An HttpResponse that renders its content into JSON.
@@ -26,12 +28,18 @@ def book_list(request):
 		return JSONResponse(serializer.data)
 	elif request.method == 'POST':
 		data = JSONParser().parse(request)
-		serializer = BookSerializer(data=data)
-		if serializer.is_valid():
-			serializer.save()
-			return JSONResponse(serializer.data, status=201)
-		return JSONResponse(serializer.errors, status=400)
+		return _post_book(data)
 
+def _post_book(data):
+	"""
+	Verifies and saves a POST request for a 
+	Book resource
+	"""
+	serializer = BookSerializer(data=data)
+	if serializer.is_valid():
+		serializer.save()
+		return JSONResponse(serializer.data, status=201)
+	return JSONResponse(serializer.errors, status=400)
 
 @csrf_exempt
 def book_detail(request, id):
@@ -70,12 +78,18 @@ def category_list(request):
 		return JSONResponse(serializer.data)
 	elif request.method == 'POST':
 		data = JSONParser().parse(request)
-		serializer = CategorySerializer(data=data)
-		if serializer.is_valid():
-			serializer.save()
-			return JSONResponse(serializer.data, status=201)
-		return JSONResponse(serializer.errors, status=400)
+		return _post_category(data)
 
+def _post_category(data):
+	"""
+	Verifies and saves a POST request for a 
+	Category resource
+	"""
+	serializer = CategorySerializer(data=data)
+	if serializer.is_valid():
+		serializer.save()
+		return JSONResponse(serializer.data, status=201)
+	return JSONResponse(serializer.errors, status=400)
 
 @csrf_exempt
 def category_detail(request, id):
@@ -102,6 +116,29 @@ def category_detail(request, id):
 	elif request.method == 'DELETE':
 		category.delete()
 		return HttpResponse(status=204)
+
+@csrf_exempt
+def scrape_list(request):
+	"""
+	Init the scraping process for the categories
+	and the books.
+	This process consists in saving first the categories
+	in the database and then the books, 
+	using the previously saved categories.
+	"""
+	if request.method != 'POST':
+		return HttpResponse(status=405)
+
+	scraper = BookScraper()
+	categories = scraper.get_categories()
+	for category in categories:
+		_post_category(category)
+	
+	books = scraper.get_books()
+	for book in books:
+		_post_book(book)
+
+	return HttpResponse(status=200)
 
 def index(request):
     return HttpResponse()
