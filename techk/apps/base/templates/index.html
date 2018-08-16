@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>Book Scraper</title>
+	
+	<link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css"/>
+	<link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.css"/>
+	<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ" crossorigin="anonymous">
+</head>
+<body>
+	<div id="app">
+		<header>
+			<b-navbar toggleable="md" type="dark" variant="info">
+
+				<b-navbar-toggle target="nav_collapse"></b-navbar-toggle>
+				
+				<b-navbar-brand href="#">Book Scraper</b-navbar-brand>
+				
+				<b-collapse is-nav id="nav_collapse">
+				
+					<b-navbar-nav class="ml-auto">
+						<!-- Lanzar un modal indicando tiempo de ejecución -->
+						<b-button variant="danger" v-b-modal="'scrapeModal'">Scrape</b-button>
+					</b-navbar-nav>
+				
+				</b-collapse>
+			</b-navbar>
+		</header>
+		<main>
+			{% verbatim %}
+			<b-modal id="scrapeModal" title="Scrape" variant="danger">
+				<p>This operation can take several minutes to complete</p>
+				<div slot="modal-footer" class="w-100">
+					<b-btn class="float-right" variant="danger" @click="scrape">
+						OK
+					</b-btn>
+					<b-btn @click="hideScrapeModal">
+						Cancel
+					</b-btn>
+				</div>
+			</b-modal>
+			<b-container fluid>
+				<b-row>
+					<b-col md="3">
+						<aside>
+							<b-list-group>
+								<b-list-group-item 
+									href="#" 
+									@click="getBooks(category.id)" 
+									v-for="category of categories" 
+									:key="category.id">{{category.name}}
+								</b-list-group-item>
+							</b-list-group>
+						</aside>
+					</b-col>
+					<b-col md="9">
+						<article >
+							<b-container fluid>
+								<b-alert :show="alertConfig.dismissCountDown"
+									dismissible
+									variant="warning"
+									@dismissed="hideAlert()"
+									@dismiss-count-down="countDownChanged">
+										<p>Categories will be updated after {{alertConfig.dismissCountDown}} seconds...</p>
+										<b-progress variant="warning"
+													:max="alertConfig.dismissSecs"
+													:value="alertConfig.dismissCountDown"
+													height="4px">
+										</b-progress>
+								</b-alert>
+								<b-row>
+									<b-col md="6" class="my-1">
+										<b-form-group horizontal label="Filter" class="mb-0">
+											<b-input-group>
+											  <b-form-input v-model="tableConfig.filter" placeholder="Type to Search" />
+											  <b-input-group-append>
+												<b-btn :disabled="!tableConfig.filter" @click="filter = ''">Clear</b-btn>
+											  </b-input-group-append>
+											</b-input-group>
+										  </b-form-group>
+									</b-col>
+									<b-col md="6" class="my-1">
+										<b-form-group horizontal label="Per page" class="mb-0">
+										  <b-form-select :options="tableConfig.pageOptions" v-model="tableConfig.perPage" />
+										</b-form-group>
+									  </b-col>
+								</b-row>
+			
+								<b-table show-empty
+									stacked="md"
+									:items="books"
+									:fields="tableConfig.fields"
+									:current-page="tableConfig.currentPage"
+									:per-page="tableConfig.perPage"
+									:filter="tableConfig.filter"
+									:sort-by.sync="tableConfig.sortBy"
+									:sort-desc.sync="tableConfig.sortDesc"
+									:sort-direction="tableConfig.sortDirection"
+									@filtered="onFiltered"
+								>
+									<template slot="stock" slot-scope="row">{{row.value ? 'True' : 'False'}}</template>
+									<template slot="actions" slot-scope="row">
+										<b-button size="xs" @click.stop="info(row.item, $event.target)">
+											<i class="fas fa-info-circle"></i>
+										</b-button>
+										<b-button size="xs" @click.stop="confirmDelete(row.item, $event.target)" variant="danger">
+											<i class="far fa-trash-alt"></i>
+										</b-button>
+									</template>
+								</b-table>
+			
+								<b-row>
+									<b-col md="6" class="my-1">
+										<b-pagination :total-rows="tableConfig.totalRows" :per-page="tableConfig.perPage" v-model="tableConfig.currentPage" class="my-0" />
+									</b-col>
+								</b-row>
+								<b-modal size="lg" id="modalInfo" @hide="resetInfoModal" :title="tableConfig.modalInfo.title" ok-only>
+									<table>
+										<tr>
+											<td class=""><b>Description</b></td>
+											<td>{{tableConfig.modalInfo.product_description}}</td>
+										</tr>
+										<tr>
+											<td><b>Thumbnail URL</b></td>
+											<td>{{tableConfig.modalInfo.thumbnail_url}}</td>
+										</tr>
+										<tr>
+											<td><b>Tax</b></td>
+											<td>{{tableConfig.modalInfo.tax}}</td>
+										</tr>
+										<tr>
+											<td><b>Rating</b></td>
+											<td>{{tableConfig.modalInfo.rating}}/5</td>
+										</tr>
+										<tr>
+											<td><b># Reviews</b></td>
+											<td>{{tableConfig.modalInfo.reviews}}</td>
+										</tr>
+										<tr>
+											<td><b>Updated Date</b></td>
+											<td>{{tableConfig.modalInfo.updated_date}}</td>
+										</tr>
+									</table>
+								</b-modal>
+								<b-modal id="deleteModal" title="Delete Book">
+									<p>Are you sure you want to delete <b>{{tableConfig.deleteModal.title}}?</b></p>
+									<div slot="modal-footer" class="w-100">
+										<b-btn class="float-right" variant="danger" @click="deleteBook(tableConfig.deleteModal.id, tableConfig.deleteModal.category_id)">
+											OK
+										</b-btn>
+										<b-btn @click="hideDeleteModal">
+											Cancel
+										</b-btn>
+									</div>
+								</b-modal>
+							</b-container>
+						</article>
+					</b-col>
+				</b-row>
+			</b-container>
+			{% endverbatim %}
+		</main>
+	</div>
+</body>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2.5.13/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue-resource@1.3.5"></script>
+
+<script src="https://unpkg.com/babel-polyfill@latest/dist/polyfill.min.js"></script>
+<script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.js"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="https://momentjs.com/downloads/moment.js"></script>
+
+<script>
+	let appData = {
+		tableConfig: {
+			fields: [
+				{ key: 'id', label: 'Id', sortable: true, sortDirection: 'desc' },
+				{ key: 'title', label: 'Title', sortable: true, 'class': 'text-center' },
+				{ key: 'price', label: 'Price', sortable: true },
+				{ key: 'tax', label: 'Tax'},
+				{ key: 'stock', label: 'Stock' },
+				{ key: 'upc', label: 'UPC' }, 
+				{ key: 'actions', label: 'Actions' }
+			],
+			currentPage: 1,
+			perPage: 10,
+			pageOptions: [ 10, 25, 50 ],
+			sortBy: null,
+			sortDesc: false,
+			sortDirection: 'asc',
+			filter: null,
+			totalRows: 0,
+			modalInfo: { title: '', product_description: '' },
+			deleteModal: {id: 0, title: ''}
+		},
+		alertConfig: {
+			dismissSecs: 10,
+			dismissCountDown: 0,
+			showDismissibleAlert: false
+		},
+		categories: [],
+		books: []
+	};
+
+	let config = {
+		data: appData,
+		methods: {
+			getCategories: () => {
+				axios.get('/api/categories/')
+				.then((categories) => {
+					app.categories = categories.data;
+				});
+			},
+			getBooks: (categoryId) => {
+				axios.get('/api/categories/' + categoryId + '/books/')
+				.then((books) => {
+					app.books = books.data;
+					app.tableConfig.totalRows = app.books.length;
+				});
+			},
+			scrape: () => {
+				axios.post('/api/scraper/')
+				.catch((e) => {
+					console.log(e);
+				});
+				app.hideScrapeModal();
+				app.showScrapingAlert();
+			},
+			deleteBook: (id, category) => {
+				axios.delete('/api/books/' + id)
+				.then(() => {
+					app.hideDeleteModal();
+					app.getBooks(category);
+				});
+			},
+			hideScrapeModal: () => {
+				app.$root.$emit('bv::hide::modal','scrapeModal')
+			},
+			hideDeleteModal: () => {
+				app.tableConfig.deleteModal.id = 0;
+				app.tableConfig.deleteModal.category_id = 0;
+				app.tableConfig.deleteModal.title = '';
+				app.$root.$emit('bv::hide::modal','deleteModal')
+			},
+			info: (item, button) => {
+				app.tableConfig.modalInfo.title = item.title;
+				app.tableConfig.modalInfo.product_description = item.product_description;
+				app.tableConfig.modalInfo.thumbnail_url = item.thumbnail_url;
+				app.tableConfig.modalInfo.tax = item.tax;
+				app.tableConfig.modalInfo.rating = item.rating;
+				app.tableConfig.modalInfo.reviews = item.reviews;
+				app.tableConfig.modalInfo.updated_date = moment(item.updated_date).format('YYYY-MM-DD HH:mm:ss');
+				app.$root.$emit('bv::show::modal', 'modalInfo', button)
+			},
+			confirmDelete: (item, button) => {
+				app.tableConfig.deleteModal.id = item.id;
+				app.tableConfig.deleteModal.category_id = item.category_id;
+				app.tableConfig.deleteModal.title = item.title;
+				app.$root.$emit('bv::show::modal', 'deleteModal', button);
+			},
+			resetInfoModal: () => {
+				app.tableConfig.modalInfo.title = '';
+				app.tableConfig.modalInfo.product_description = '';
+				app.tableConfig.modalInfo.thumbnail_url = '';
+				app.tableConfig.modalInfo.tax = '';
+				app.tableConfig.modalInfo.rating = '';
+				app.tableConfig.modalInfo.reviews = '';
+				app.tableConfig.modalInfo.updated_date = '';
+			},
+			countDownChanged: (dismissCountDown) => {
+				app.alertConfig.dismissCountDown = dismissCountDown;
+				if(dismissCountDown === 0){
+					hideAlert();
+				}
+			},
+			showScrapingAlert: () => {
+				app.alertConfig.showDismissibleAlert = true;
+				app.alertConfig.dismissCountDown = app.alertConfig.dismissSecs;
+			},
+			hideAlert: () => {
+				app.alertConfig.showDismissibleAlert=false;
+				app.alertConfig.dismissCountDown = 0;
+				app.getCategories();
+			},
+			onFiltered: (filteredItems) => {
+				// Trigger pagination to update the number of buttons/pages due to filtering
+				app.totalRows = filteredItems.length
+				app.currentPage = 1
+			}
+		},
+		el: "#app",
+		created: function(){
+			this.getCategories();
+		}
+	};
+
+	let app = new Vue(config);
+</script>
+
+</html>
+
