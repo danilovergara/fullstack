@@ -16,6 +16,15 @@ Por medio de este test se evaluarán algunos de tus conocimientos que nos intere
 5. Desarrollar lo que se indica. Si existen supuestos, estos deben definirse claramente en el README
 6. Entregar desarrollo por medio de un pull-request y notificar envío por email
 
+## Supuestos
+---
+* La cantidad de categorías es baja.
+    La implementación del scraping de categorías guarda cada categoría encontrada en un array, que es devuelto a la vista. Esto se hizo por facilidad, y considerando que el objeto que modela una categoría es pequeño, no necesita un tratamiento como el caso de un libro.
+* No es necesario informar al frontend sobre el estado del scraping
+    Si bien el frontend actualiza la lista de categorías después de 10 segundos de iniciado el proceso, no hay feedback público sobre el estado del scraping. El servidor va imprimiendo qué libro está procesando actualmente, siendo el único feedback sobre el estado.
+* No se necesita un proceso de transpilación para el frontend
+    Por sencillez se implementó todo el frontend en un archivo index.html, usando la biblioteca Vue.js. Es posible generar archivos estáticos que separen el JavaScript del HTML (lo cual es recomendado) y usar un proceso de transpilación para la mantenibilidad del frontend.
+
 
 ## Instrucciones de desarrollo
 ---
