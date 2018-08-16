@@ -18,12 +18,15 @@ class JSONResponse(HttpResponse):
 		super(JSONResponse, self).__init__(content, **kwargs)
 
 @csrf_exempt
-def book_list(request):
+def book_list(request, id=None):
 	"""
 	List all books, or create a new one.
+	It can filter by category id
 	"""
 	if request.method == 'GET':
 		books = Book.objects.filter(active__exact=True)
+		if id is not None:
+			books = books.filter(category_id__exact=id)
 		serializer = BookSerializer(books, many=True)
 		return JSONResponse(serializer.data)
 	elif request.method == 'POST':
