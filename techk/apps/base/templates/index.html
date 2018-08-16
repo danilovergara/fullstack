@@ -59,6 +59,18 @@
 					<b-col md="9">
 						<article >
 							<b-container fluid>
+								<b-alert :show="alertConfig.dismissCountDown"
+									dismissible
+									variant="warning"
+									@dismissed="hideAlert()"
+									@dismiss-count-down="countDownChanged">
+										<p>Categories will be updated after {{alertConfig.dismissCountDown}} seconds...</p>
+										<b-progress variant="warning"
+													:max="alertConfig.dismissSecs"
+													:value="alertConfig.dismissCountDown"
+													height="4px">
+										</b-progress>
+								</b-alert>
 								<b-row>
 									<b-col md="6" class="my-1">
 										<b-form-group horizontal label="Filter" class="mb-0">
@@ -185,6 +197,11 @@
 			modalInfo: { title: '', product_description: '' },
 			deleteModal: {id: 0, title: ''}
 		},
+		alertConfig: {
+			dismissSecs: 10,
+			dismissCountDown: 0,
+			showDismissibleAlert: false
+		},
 		categories: [],
 		books: []
 	};
@@ -211,6 +228,7 @@
 					console.log(e);
 				});
 				app.hideScrapeModal();
+				app.showScrapingAlert();
 			},
 			deleteBook: (id, category) => {
 				axios.delete('/api/books/' + id)
@@ -228,7 +246,7 @@
 				app.tableConfig.deleteModal.title = '';
 				app.$root.$emit('bv::hide::modal','deleteModal')
 			},
-			info (item, button) {
+			info: (item, button) => {
 				app.tableConfig.modalInfo.title = item.title;
 				app.tableConfig.modalInfo.product_description = item.product_description;
 				app.tableConfig.modalInfo.thumbnail_url = item.thumbnail_url;
@@ -244,7 +262,7 @@
 				app.tableConfig.deleteModal.title = item.title;
 				app.$root.$emit('bv::show::modal', 'deleteModal', button);
 			},
-			resetInfoModal () {
+			resetInfoModal: () => {
 				app.tableConfig.modalInfo.title = '';
 				app.tableConfig.modalInfo.product_description = '';
 				app.tableConfig.modalInfo.thumbnail_url = '';
@@ -253,7 +271,22 @@
 				app.tableConfig.modalInfo.reviews = '';
 				app.tableConfig.modalInfo.updated_date = '';
 			},
-			onFiltered (filteredItems) {
+			countDownChanged: (dismissCountDown) => {
+				app.alertConfig.dismissCountDown = dismissCountDown;
+				if(dismissCountDown === 0){
+					hideAlert();
+				}
+			},
+			showScrapingAlert: () => {
+				app.alertConfig.showDismissibleAlert = true;
+				app.alertConfig.dismissCountDown = app.alertConfig.dismissSecs;
+			},
+			hideAlert: () => {
+				app.alertConfig.showDismissibleAlert=false;
+				app.alertConfig.dismissCountDown = 0;
+				app.getCategories();
+			},
+			onFiltered: (filteredItems) => {
 				// Trigger pagination to update the number of buttons/pages due to filtering
 				app.totalRows = filteredItems.length
 				app.currentPage = 1
